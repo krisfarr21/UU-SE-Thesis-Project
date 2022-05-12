@@ -1,0 +1,45 @@
+Job started at: 2022-05-06 17:09:44.836424
+##################################################
+################################################## 
+
+USING:  xlm-roberta-base 
+
+SOURCE LANGUAGE  arabic 
+
+TRAINING IS:  mono 
+
+VALIDATION IS:  mono 
+
+##################################################
+##################################################
+wandb: Tracking run with wandb version 0.12.15
+wandb: W&B syncing is set to `offline` in this directory.  
+wandb: Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+Some weights of the model checkpoint at xlm-roberta-base were not used when initializing XLMRobertaForTokenClassification: ['lm_head.bias', 'lm_head.layer_norm.bias', 'lm_head.dense.bias', 'lm_head.layer_norm.weight', 'lm_head.decoder.weight', 'lm_head.dense.weight']
+- This IS expected if you are initializing XLMRobertaForTokenClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing XLMRobertaForTokenClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of XLMRobertaForTokenClassification were not initialized from the model checkpoint at xlm-roberta-base and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+<<<< TRAINING AND VALIDAITON DATA >>>>>
+Making sure there's no overlap between training and validation:
+Empty DataFrame
+Columns: [id, tokens, ner_tags]
+Index: [] 
+
+
+
+, <<<<< Preprocessing the datasets >>>>>
+
+
+ <<<<< Length of dataset before preprocessing >>>>>
+Length of training 3918 Length of validation 979 Length of testing 599
+##################################################
+Job finished at 2022-05-06 17:10:03.639563 and files were saved
+################################################## 
+ 
+
+wandb: Waiting for W&B process to finish... (success).
+wandb: - 0.000 MB of 0.000 MB uploaded (0.000 MB deduped)wandb: \ 0.000 MB of 0.000 MB uploaded (0.000 MB deduped)wandb: | 0.000 MB of 0.000 MB uploaded (0.000 MB deduped)wandb:                                                                                
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync /domus/h1/krisfarr/thesis/Trainer_implementation/runs/xlm-r/wandb/offline-run-20220506_170945-1oy8fjin
+wandb: Find logs at: ./wandb/offline-run-20220506_170945-1oy8fjin/logs

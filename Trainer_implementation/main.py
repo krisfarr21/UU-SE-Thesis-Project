@@ -242,7 +242,9 @@ class hf_model():
         self.training_arguments = TrainingArguments( \
         output_dir=self.output_dir,
         evaluation_strategy = "epoch",
-        logging_strategy = 'epoch',
+        logging_strategy = 'steps',
+        save_steps = 5000,
+        logging_steps = 5000,
         learning_rate=2e-5,
         per_device_train_batch_size=self.BATCH_SIZE,
         per_device_eval_batch_size=self.BATCH_SIZE,
@@ -385,26 +387,26 @@ class hf_model():
         print("\n\n <<<<< Length of dataset before preprocessing >>>>>")
         print(f"Length of training {len(self.train_df)}",  f"Length of validation {len(self.valid_df)}", f"Length of testing {len(self.test_df)}")
         
-        # self.train_df, self.valid_df = self.preprocess_dataframe(self.train_df), self.preprocess_dataframe(self.valid_df)
-        # self.test_df = self.preprocess_dataframe(self.test_df)
+        self.train_df, self.valid_df = self.preprocess_dataframe(self.train_df), self.preprocess_dataframe(self.valid_df)
+        self.test_df = self.preprocess_dataframe(self.test_df)
 
-        # print("\n\n, <<<<< Tokenizing datasets >>>>>")
+        print("\n\n, <<<<< Tokenizing datasets >>>>>")
 
-        # self.train_df, self.valid_df = self.create_tokenized_datasets(df=self.train_df), self.create_tokenized_datasets(df=self.valid_df)
-        # self.test_df = self.create_tokenized_datasets(df=self.test_df) 
+        self.train_df, self.valid_df = self.create_tokenized_datasets(df=self.train_df), self.create_tokenized_datasets(df=self.valid_df)
+        self.test_df = self.create_tokenized_datasets(df=self.test_df) 
 
          
 
-        # print("\n\n <<<<< Length of datasets after preprocessing >>>>>")
-        # print(f"Length of training {len(self.train_df)}",  f"Length of validation {len(self.valid_df)}", f"Length of testing {len(self.test_df)}") 
+        print("\n\n <<<<< Length of datasets after preprocessing >>>>>")
+        print(f"Length of training {len(self.train_df)}",  f"Length of validation {len(self.valid_df)}", f"Length of testing {len(self.test_df)}") 
 
-        # print("\n\n")
-        # self.trainer = self.create_trainer()
-        # self.train_and_eval()
-        # self.plot_stats()
+        print("\n\n")
+        self.trainer = self.create_trainer()
+        self.train_and_eval()
+        self.plot_stats()
 
-        # self.predict()
-        # self.save_results()
+        self.predict()
+        self.save_results()
 
 if __name__ == '__main__':
     start = datetime.datetime.now()

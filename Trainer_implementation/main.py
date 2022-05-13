@@ -21,7 +21,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 # If you don't want your script to sync to the cloud
-os.environ['WANDB_MODE'] = 'offline'
+# os.environ['WANDB_MODE'] = 'offline'
 
 import datetime
 
@@ -69,8 +69,8 @@ class hf_model():
         self.trainer = None
 
         # directories for outputting results and logs
-        self.output_dir = f"{self.STORAGE_PROJECT_DIR}/kris/models/{self.source_language}/{self.model_name}/train_{self.training_lingual}-valid_{self.validation_lingual}"
-        self.logging_dir = f'{self.STORAGE_PROJECT_DIR}/kris/loggings/{self.source_language}/{self.model_name}/train_{self.training_lingual}-valid_{self.validation_lingual}'
+        self.output_dir = f"{self.STORAGE_PROJECT_DIR}/kris/models/{self.source_language}/{self.model_name}/train_{self.training_lingual}_valid_{self.validation_lingual}"
+        self.logging_dir = f'{self.STORAGE_PROJECT_DIR}/kris/loggings/{self.source_language}/{self.model_name}/train_{self.training_lingual}_valid_{self.validation_lingual}'
 
         # storing results to plot
         self.results = None
@@ -174,7 +174,7 @@ class hf_model():
         df['ner_tags'] = df['ner_tags'].apply(eval)
         df['tokens'] = df['tokens'].apply(eval)
         df = df.sample(frac=1).reset_index(drop=True)
-        df = df[(df['tokens'].apply(lambda x: len(x) > 3))]
+        # df = df[(df['tokens'].apply(lambda x: len(x) > 3))]
         df['id'] = [i+1 for i in range(len(df))]
         df = Dataset.from_pandas(df)
         return df
@@ -242,7 +242,7 @@ class hf_model():
         self.training_arguments = TrainingArguments( \
         output_dir=self.output_dir,
         evaluation_strategy = "epoch",
-        logging_strategy = 'steps',
+        logging_strategy = 'epoch',
         save_steps = 5000,
         logging_steps = 5000,
         learning_rate=2e-5,
@@ -333,11 +333,11 @@ class hf_model():
         tags_results_pd = pd.DataFrame.from_dict(tags_results)[:3]
         overall_results_pd = pd.DataFrame.from_dict(overall_results, orient='columns')[:3]
 
-        tags_results_pd.to_csv(f'{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results_train-{self.training_lingual}_valid-{self.validation_lingual}.csv')
+        tags_results_pd.to_csv(f'{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results-train_{self.training_lingual}-valid_{self.validation_lingual}.csv')
         plot = tags_results_pd.plot.bar(fontsize=12, ylim=(0, 1))
 
         fig = plot.get_figure()
-        fig.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results_train_{self.training_lingual}-valid_{self.validation_lingual}.png")
+        fig.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results-train_{self.training_lingual}-valid_{self.validation_lingual}.png")
     
 
     def argparser(self):

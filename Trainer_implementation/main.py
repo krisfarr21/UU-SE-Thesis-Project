@@ -3,6 +3,7 @@ from datasets import load_dataset, load_metric, Dataset
 
 import pandas as pd
 import numpy as np
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import plotly
 import seaborn as sns
@@ -21,7 +22,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 # If you don't want your script to sync to the cloud
-# os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'offline'
 
 import datetime
 
@@ -37,11 +38,14 @@ class hf_model():
 
     LANGUAGES = ['italian', 'arabic', 'english', 'spanish', 'dutch']
     TEST_DF = pd.read_csv(f'{IMPLEM_PROJECT_DIR}final_datasets/maltese_data.csv')
+    
+    # LABEL_LIST = ['B-PER', 'O', 'I-LOC', 'B-MISC', 'B-ORG', 'B-LOC', 'I-ORG', 'I-PER', 'I-MISC']
 
-    # pd.read_csv(f'../final_datasets/{lang}_data.csv')
-    LABEL_LIST = ['B-PER', 'O', 'I-LOC', 'B-MISC', 'B-ORG', 'B-LOC', 'I-ORG', 'I-PER', 'I-MISC']
+    # taken from transform_preprocess_data.ipynb
+    LABEL_LIST = {0: 'O', 1: 'B-PER', 2: 'B-LOC', 3: 'I-ORG', 4: 'B-MISC', 5: 'I-LOC', 6: 'I-MISC', 7: 'I-PER', 8: 'B-ORG'}
     TASK = 'ner'
-    BATCH_SIZE = 4 # batch size reduced to 4 due to CUDA out of memory error
+    BATCH_SIZE = 8 # batch size reduced to 4 due to CUDA out of memory error
+
 
     def __init__(self):
         self.argparser()
@@ -76,13 +80,16 @@ class hf_model():
         self.results = None
 
 
-
     def get_training_data(self) -> pd.DataFrame:
         '''
         
         '''
+
         if self.training_lingual=='mono':
-            self.train_df = pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{self.source_language}_data.csv')
+            self.train_df = pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{self.source_language}_data.csv')[:1000]
+        elif self.training_lingual=='concat':
+            dfs = [pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{lang}_data.csv')[:length_to_split] for lang in self.LANGUAGES]
+            self.train_df = pd.concat(dfs)
         else:
             # get length of source language
             
@@ -101,15 +108,9 @@ class hf_model():
             # print(f"NUMBER OF SENTENCES FROM EACH LANGUAGE FOR TRAINING DATA {length_to_split}")
             
             # get the same number of sentences frome each language except for the source language (oversampling it by 100%)
-            len_of_dfs ,dfs = [(len(pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{lang}_data.csv')[:length_to_split]), lang) for lang in self.LANGUAGES if lang != self.source_language], \
-                             [pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{lang}_data.csv')[:length_to_split] for lang in self.LANGUAGES if lang != self.source_language]
+            dfs = [pd.read_csv(f'{self.IMPLEM_PROJECT_DIR}/final_datasets/{lang}_data.csv')[:length_to_split] for lang in self.LANGUAGES if lang != self.source_language]
             dfs.append(source_language_df[:num_of_sentences_source])
 
-            # total_sentences = 0
-            # for length, lang in len_of_dfs:
-            #     print(f"len of {lang} is {length}")
-            #     total_sentences += length
-            # print("TOTAL NUMBER OF SENTENCES GATHERED", total_sentences)
 
             # concatenate the dataframes
             self.train_df = pd.concat(dfs)
@@ -121,8 +122,6 @@ class hf_model():
         # validation size
         validation_size = int(len(self.train_df) * split)
         if self.validation_lingual=='mono':
-            
-            
             if self.training_lingual=='mono':
                 self.valid_df = self.train_df[:validation_size]
                 self.train_df = self.train_df[validation_size:]
@@ -133,6 +132,10 @@ class hf_model():
                 self.valid_df = source_language_df[len(source_language_df)-validation_size:]
                 # reduce size of training data
                 self.train_df = self.train_df[validation_size:]
+        elif self.validation_lingual=='concat':
+            assert self.training_lingual=='concat'
+            self.valid_df = self.train_df[:validation_size]
+            self.train_df = self.train_df[validation_size:]
         # self.training_lingual=='multi'
         else:
             # number of sentences per language
@@ -278,7 +281,7 @@ class hf_model():
         eval_loss = [log['eval_loss'] for log in log_history if 'eval_loss' in log.keys()]
         training_stats = {'Training Loss': train_loss,
                   'Evaluation Loss': eval_loss,
-                  'Epochs': [i+1 for i in range(self.training_arguments.num_train_epochs)]}
+                  'Epochs': [i+1 for i in range((self.training_arguments.num_train_epochs))]}
         return training_stats
 
     def plot_stats(self):
@@ -308,19 +311,35 @@ class hf_model():
         plt.legend()
         plt.xticks([1, 2, 3])
 
-        plt.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/train_eval_stats-train_{self.training_lingual}-valid_{self.validation_lingual}.png")
+        plt.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/stats-tr_{self.training_lingual}-va_{self.validation_lingual}.png")
         plt.show()
     
     def predict(self):
-        self.test_df = self.create_tokenized_datasets(df=self.test_df)
+        # self.test_df = self.create_tokenized_datasets(df=self.test_df)
         # self.train_df.map(self.tokenize_and_align_labels, batched=True)
         predictions, labels, _ = self.trainer.predict(self.test_df)
         predictions = np.argmax(predictions, axis=2)
 
+
         # Remove ignored index (special tokens)
         true_predictions, true_labels = self.remove_special_tokens(predictions, labels)
-        
         self.results = self.metric.compute(predictions=true_predictions, references=true_labels)
+
+        pred_output, label_output = [], []
+        for prediction, label in zip(true_predictions, true_labels):
+            for prediction_, label_ in zip(prediction, label):
+                pred_output.append(prediction_)
+                label_output.append(label_)
+
+        labels = list(self.LABEL_LIST.values())
+        cm = confusion_matrix(label_output, pred_output, labels=labels)
+        print("\n Confusion matrix: \n")
+        print(cm)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+        disp.plot()
+        figure = plt.gcf()
+        figure.set_size_inches(8, 6)
+        plt.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/CM_{self.training_lingual}-va_{self.validation_lingual}.png", dpi = 100)
         return self.results   
 
 
@@ -333,11 +352,11 @@ class hf_model():
         tags_results_pd = pd.DataFrame.from_dict(tags_results)[:3]
         overall_results_pd = pd.DataFrame.from_dict(overall_results, orient='columns')[:3]
 
-        tags_results_pd.to_csv(f'{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results-train_{self.training_lingual}-valid_{self.validation_lingual}.csv')
+        tags_results_pd.to_csv(f'{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/results-tr_{self.training_lingual}-va_{self.validation_lingual}.csv')
         plot = tags_results_pd.plot.bar(fontsize=12, ylim=(0, 1))
 
         fig = plot.get_figure()
-        fig.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/tags_results-train_{self.training_lingual}-valid_{self.validation_lingual}.png")
+        fig.savefig(f"{self.STORAGE_PROJECT_DIR}/kris/results/{self.source_language}/{self.model_checkpoint}/results-tr_{self.training_lingual}-va_{self.validation_lingual}.png")
     
 
     def argparser(self):
@@ -390,40 +409,32 @@ class hf_model():
         self.train_df, self.valid_df = self.preprocess_dataframe(self.train_df), self.preprocess_dataframe(self.valid_df)
         self.test_df = self.preprocess_dataframe(self.test_df)
 
+        
         print("\n\n, <<<<< Tokenizing datasets >>>>>")
 
         self.train_df, self.valid_df = self.create_tokenized_datasets(df=self.train_df), self.create_tokenized_datasets(df=self.valid_df)
         self.test_df = self.create_tokenized_datasets(df=self.test_df) 
-
-         
-
+        
         print("\n\n <<<<< Length of datasets after preprocessing >>>>>")
         print(f"Length of training {len(self.train_df)}",  f"Length of validation {len(self.valid_df)}", f"Length of testing {len(self.test_df)}") 
 
         print("\n\n")
         self.trainer = self.create_trainer()
         self.train_and_eval()
-        self.plot_stats()
+        # self.plot_stats()
 
         self.predict()
-        self.save_results()
+        # # self.save_results()
 
 if __name__ == '__main__':
     start = datetime.datetime.now()
     print(f"Job started at: {str(start)}")
 
-    xlm_r_model = hf_model()
-    xlm_r_model.main()
+    model = hf_model()
+    model.main()
 
     end = datetime.datetime.now()
     print("#" * 50)
     print(f"Job finished at {str(end)} and files were saved")
     print("#" * 50, "\n \n")
 
-    # print("MULTILINGUAL BERT \n")c
-    # print("#" * 50, '\n')
-    # mbert_model = hf_model(model_checkpoint='bert-base-multilingual-cased')
-    # mbert_model.main()
-    # print("#" * 50, '\n')
-    # print("JOB FINISHED AND FILED SAVED")
-    # print("#" * 50, '\n')
